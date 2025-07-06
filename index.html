@@ -1,0 +1,2008 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaaS Barbearia/Salão</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Very light gray background */
+        }
+        .container {
+            max-width: 90%;
+            margin: 0 auto;
+        }
+        @media (min-width: 768px) {
+            .container {
+                max-width: 768px; /* md */
+            }
+        }
+        @media (min-width: 1024px) {
+            .container {
+                max-width: 1024px; /* lg */
+            }
+        }
+        /* Estilos para o modal de confirmação */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.6); /* Black w/ opacity */
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px); /* Efeito de desfoque */
+        }
+        .modal-content {
+            background-color: #ffffff;
+            margin: auto;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            width: 90%;
+            max-width: 450px;
+            text-align: center;
+            animation: fadeInScale 0.3s ease-out forwards;
+        }
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .close-button {
+            color: #9ca3af;
+            float: right;
+            font-size: 32px;
+            font-weight: bold;
+            line-height: 1;
+            margin-top: -10px;
+            margin-right: -10px;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: #4b5563;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        /* Estilos para o calendário */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+        .calendar-day {
+            padding: 10px 5px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            font-weight: 500;
+        }
+        .calendar-day.current-month {
+            background-color: #f1f5f9; /* Light blue-gray for current month days */
+            color: #334155;
+        }
+        .calendar-day.other-month {
+            background-color: #e2e8f0;
+            color: #94a3b8;
+            opacity: 0.7;
+        }
+        .calendar-day.selected {
+            background-color: #8b5cf6; /* Purple */
+            color: white;
+            box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3);
+            transform: translateY(-2px);
+        }
+        .calendar-day.selected:hover {
+            background-color: #7c3aed;
+        }
+        .calendar-day:not(.selected):hover {
+            background-color: #e0e7ff; /* Lighter purple on hover */
+            color: #6d28d9;
+        }
+        .calendar-day.today {
+            border: 2px solid #8b5cf6;
+            background-color: #ede9fe;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .calendar-header button {
+            padding: 8px 12px;
+            background-color: #8b5cf6;
+            color: white;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+        .calendar-header button:hover {
+            background-color: #7c3aed;
+        }
+        .day-name {
+            font-weight: 600;
+            color: #64748b;
+            text-align: center;
+            padding-bottom: 10px;
+        }
+        .time-slot {
+            padding: 10px 15px;
+            background-color: #f1f5f9;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            text-align: center;
+            font-weight: 500;
+            color: #334155;
+            flex-grow: 1; /* Make time slots fill available space */
+        }
+        .time-slot:hover {
+            background-color: #e0e7ff;
+            color: #6d28d9;
+        }
+        .time-slot.selected-time {
+            background-color: #8b5cf6;
+            color: white;
+            box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3);
+            transform: translateY(-2px);
+        }
+        .time-slot.selected-time:hover {
+            background-color: #7c3aed;
+        }
+        .time-slots-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+            max-height: 300px; /* Limit height for scrollability */
+            overflow-y: auto; /* Enable vertical scrolling */
+            padding-right: 5px; /* Prevent scrollbar from overlapping content */
+        }
+        /* Custom scrollbar for time slots */
+        .time-slots-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .time-slots-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        .time-slots-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .time-slots-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div id="app" class="container bg-white shadow-xl rounded-xl p-8 md:p-12 my-8 transform transition-all duration-300 ease-in-out">
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="hidden flex justify-center items-center h-64">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-500"></div>
+        </div>
+
+        <!-- Mensagens de Notificação -->
+        <div id="message-box" class="hidden bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-6 rounded-lg shadow-md" role="alert">
+            <p id="message-text" class="font-medium"></p>
+            <button onclick="hideMessageBox()" class="float-right text-blue-700 hover:text-blue-900 font-bold text-lg leading-none">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Modal de Confirmação Personalizado -->
+        <div id="custom-confirm-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" id="close-confirm-modal">&times;</span>
+                <p id="confirm-message" class="text-xl font-semibold text-gray-800 mb-6"></p>
+                <div class="flex justify-center space-x-4">
+                    <button id="confirm-yes-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-300 ease-in-out transform hover:scale-105">Sim</button>
+                    <button id="confirm-no-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition duration-300 ease-in-out transform hover:scale-105">Não</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login/Registro -->
+        <div id="auth-section" class="space-y-8">
+            <h2 class="text-4xl font-extrabold text-center text-gray-900 mb-8">Bem-vindo(a)!</h2>
+            <div class="flex justify-center mb-8 bg-gray-100 rounded-full p-1 shadow-inner">
+                <button id="show-login-btn" class="flex-1 px-8 py-4 rounded-full font-semibold text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 transition duration-300 ease-in-out text-lg">Login</button>
+                <button id="show-register-btn" class="flex-1 px-8 py-4 rounded-full font-semibold text-purple-700 bg-transparent hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 transition duration-300 ease-in-out text-lg">Registrar</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label for="login-email" class="block text-gray-700 text-base font-semibold mb-2">Email:</label>
+                    <input type="email" id="login-email" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" placeholder="seu.email@exemplo.com" required>
+                </div>
+                <div>
+                    <label for="login-password" class="block text-gray-700 text-base font-semibold mb-2">Senha:</label>
+                    <input type="password" id="login-password" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 mb-3 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" placeholder="********" required>
+                </div>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 transition duration-300 ease-in-out transform hover:scale-105 text-lg">Entrar</button>
+            </form>
+
+            <!-- Register Form -->
+            <form id="register-form" class="space-y-6 hidden">
+                <div>
+                    <label for="register-email" class="block text-gray-700 text-base font-semibold mb-2">Email:</label>
+                    <input type="email" id="register-email" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" placeholder="seu.email@exemplo.com" required>
+                </div>
+                <div>
+                    <label for="register-password" class="block text-gray-700 text-base font-semibold mb-2">Senha:</label>
+                    <input type="password" id="register-password" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 mb-3 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" placeholder="********" required>
+                </div>
+                <div>
+                    <label for="register-role" class="block text-gray-700 text-base font-semibold mb-2">Você é:</label>
+                    <select id="register-role" class="shadow-sm border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200">
+                        <option value="establishment">Estabelecimento</option>
+                        <option value="employee">Funcionário</option>
+                    </select>
+                </div>
+                <div id="establishment-id-field" class="hidden">
+                    <label for="register-establishment-id" class="block text-gray-700 text-base font-semibold mb-2">ID do Estabelecimento (para Funcionários):</label>
+                    <input type="text" id="register-establishment-id" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" placeholder="ID do Estabelecimento">
+                </div>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 transition duration-300 ease-in-out transform hover:scale-105 text-lg">Registrar</button>
+            </form>
+        </div>
+
+        <!-- Seção de Planos (Nova) -->
+        <div id="plans-section" class="hidden text-center space-y-10">
+            <h2 class="text-4xl font-extrabold text-gray-900 mb-6">Seu Plano Expirou ou Não Está Ativo!</h2>
+            <p class="text-lg text-gray-700 mb-10">Para continuar usando todos os recursos, escolha um de nossos planos de assinatura:</p>
+
+            <div class="flex flex-col md:flex-row justify-center items-stretch gap-8">
+                <!-- Plano Mensal -->
+                <div class="bg-white border border-purple-200 rounded-xl shadow-lg p-8 w-full md:w-1/2 lg:w-1/3 flex flex-col items-center transform hover:scale-105 transition duration-300 ease-in-out">
+                    <h3 class="text-3xl font-bold text-purple-700 mb-5">Plano Mensal</h3>
+                    <p class="text-5xl font-extrabold text-gray-900 mb-6">R$ 99,90<span class="text-xl font-medium text-gray-600">/mês</span></p>
+                    <ul class="text-left text-gray-700 space-y-3 mb-8 text-lg">
+                        <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Gerenciamento completo de agendamentos</li>
+                        <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Cadastro ilimitado de funcionários</li>
+                        <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Cadastro ilimitado de serviços</li>
+                        <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Link público personalizado para agendamentos</li>
+                        <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Suporte prioritário</li>
+                    </ul>
+                    <button id="subscribe-monthly-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-8 rounded-lg w-full transition duration-300 ease-in-out text-xl shadow-md">Assinar Plano Mensal</button>
+                </div>
+
+                <!-- Plano Anual -->
+                <div class="bg-white border border-purple-200 rounded-xl shadow-lg p-8 w-full md:w-1/2 lg:w-1/3 flex flex-col items-center transform hover:scale-105 transition duration-300 ease-in-out">
+                    <h3 class="text-3xl font-bold text-purple-700 mb-5">Plano Anual</h3>
+                    <p class="text-5xl font-extrabold text-gray-900 mb-6">R$ 700,00<span class="text-xl font-medium text-gray-600">/ano</span></p>
+                    <ul class="text-left text-gray-700 space-y-3 mb-8 text-lg">
+                        <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Todos os benefícios do Plano Mensal</li>
+                        <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Economia de aproximadamente 41.6% (equivalente a 5 meses grátis!)</li>
+                        <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Acesso antecipado a novos recursos</li>
+                        <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Relatórios avançados de desempenho</li>
+                    </ul>
+                    <button id="subscribe-annual-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-8 rounded-lg w-full transition duration-300 ease-in-out text-xl shadow-md">Assinar Plano Anual</button>
+                </div>
+            </div>
+            <button id="logout-plans-btn" class="mt-10 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline transition duration-300 ease-in-out transform hover:scale-105 text-lg">Sair</button>
+        </div>
+
+
+        <!-- Dashboard do Estabelecimento/Funcionário -->
+        <div id="dashboard-section" class="hidden">
+            <h2 class="text-4xl font-extrabold text-center text-gray-900 mb-8">Dashboard</h2>
+            <p class="text-center text-gray-700 mb-4 text-lg">Bem-vindo(a), <span id="user-email-display" class="font-bold text-purple-700"></span>!</p>
+            <p class="text-center text-gray-700 mb-6 text-base">Seu papel: <span id="user-role-display" class="font-bold capitalize text-purple-700"></span></p>
+            <button id="logout-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg float-right mb-6 focus:outline-none focus:shadow-outline transition duration-300 ease-in-out transform hover:scale-105"><i class="fas fa-sign-out-alt mr-2"></i>Sair</button>
+
+            <!-- Navegação do Dashboard -->
+            <div class="flex flex-wrap justify-center gap-4 mb-10 clear-both">
+                <button id="show-profile-btn" class="dashboard-nav-btn bg-purple-500 hover:bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold shadow-md transition duration-300 ease-in-out transform hover:scale-105"><i class="fas fa-user-circle mr-2"></i>Meu Perfil</button>
+                <button id="show-employees-btn" class="dashboard-nav-btn bg-purple-500 hover:bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold shadow-md transition duration-300 ease-in-out transform hover:scale-105"><i class="fas fa-users mr-2"></i>Funcionários</button>
+                <button id="show-availability-btn" class="dashboard-nav-btn bg-purple-500 hover:bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold shadow-md transition duration-300 ease-in-out transform hover:scale-105"><i class="fas fa-calendar-alt mr-2"></i>Disponibilidade</button>
+                <button id="show-services-btn" class="dashboard-nav-btn bg-purple-500 hover:bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold shadow-md transition duration-300 ease-in-out transform hover:scale-105"><i class="fas fa-cut mr-2"></i>Serviços</button>
+                <button id="show-appointments-btn" class="dashboard-nav-btn bg-purple-500 hover:bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold shadow-md transition duration-300 ease-in-out transform hover:scale-105"><i class="fas fa-clipboard-list mr-2"></i>Agendamentos</button>
+            </div>
+
+            <!-- Seção de Perfil do Estabelecimento -->
+            <div id="profile-section" class="dashboard-content space-y-6 bg-gray-50 p-8 rounded-xl shadow-inner">
+                <h3 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-4 border-gray-200">Perfil do Estabelecimento</h3>
+                <form id="establishment-profile-form" class="space-y-5">
+                    <div>
+                        <label for="establishment-name" class="block text-gray-700 text-base font-semibold mb-2">Nome:</label>
+                        <input type="text" id="establishment-name" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" required>
+                    </div>
+                    <div>
+                        <label for="establishment-address" class="block text-gray-700 text-base font-semibold mb-2">Endereço:</label>
+                        <input type="text" id="establishment-address" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" required>
+                    </div>
+                    <div>
+                        <label for="establishment-phone" class="block text-gray-700 text-base font-semibold mb-2">Telefone:</label>
+                        <input type="text" id="establishment-phone" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" required>
+                    </div>
+                    <div>
+                        <label for="establishment-description" class="block text-gray-700 text-base font-semibold mb-2">Descrição:</label>
+                        <textarea id="establishment-description" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" rows="4"></textarea>
+                    </div>
+                    <div id="public-link-display" class="hidden bg-purple-50 p-4 rounded-lg border border-purple-200 flex items-center justify-between flex-wrap gap-3">
+                        <p class="text-purple-800 text-base font-semibold">Link Público para Agendamentos:</p>
+                        <a id="public-link-value" href="#" target="_blank" class="text-blue-600 hover:underline break-all text-sm md:text-base flex-1"></a>
+                        <button type="button" onclick="copyPublicLink()" class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out transform hover:scale-105"><i class="fas fa-copy mr-2"></i>Copiar</button>
+                    </div>
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-300 ease-in-out transform hover:scale-105 text-lg"><i class="fas fa-save mr-2"></i>Salvar Perfil</button>
+                </form>
+            </div>
+
+            <!-- Seção de Funcionários -->
+            <div id="employees-section" class="dashboard-content hidden space-y-6 bg-gray-50 p-8 rounded-xl shadow-inner">
+                <h3 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-4 border-gray-200">Funcionários</h3>
+                <form id="add-employee-form" class="bg-white p-6 rounded-lg shadow-md space-y-4 mb-8">
+                    <h4 class="text-2xl font-semibold text-gray-700 border-b pb-3 mb-4 border-gray-100">Adicionar Novo Funcionário</h4>
+                    <div>
+                        <label for="employee-name" class="block text-gray-700 text-base font-semibold mb-2">Nome:</label>
+                        <input type="text" id="employee-name" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" required>
+                    </div>
+                    <div>
+                        <label for="employee-email" class="block text-gray-700 text-base font-semibold mb-2">Email (Opcional, se tiver login):</label>
+                        <input type="email" id="employee-email" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                    </div>
+                    <div>
+                        <label for="employee-phone" class="block text-gray-700 text-base font-semibold mb-2">Telefone:</label>
+                        <input type="text" id="employee-phone" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                    </div>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-300 ease-in-out transform hover:scale-105 text-lg"><i class="fas fa-plus-circle mr-2"></i>Adicionar Funcionário</button>
+                </form>
+
+                <h4 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-3 border-gray-200">Lista de Funcionários</h4>
+                <div id="employees-list" class="space-y-4">
+                    <!-- Funcionários serão carregados aqui -->
+                    <p class="text-gray-500 text-center py-4">Nenhum funcionário cadastrado ainda.</p>
+                </div>
+            </div>
+
+            <!-- Seção de Disponibilidade -->
+            <div id="availability-section" class="dashboard-content hidden space-y-6 bg-gray-50 p-8 rounded-xl shadow-inner">
+                <h3 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-4 border-gray-200">Disponibilidade dos Funcionários</h3>
+                <form id="set-availability-form" class="bg-white p-6 rounded-lg shadow-md space-y-4 mb-8">
+                    <h4 class="text-2xl font-semibold text-gray-700 border-b pb-3 mb-4 border-gray-100">Definir Disponibilidade</h4>
+                    <div>
+                        <label for="availability-employee-select" class="block text-gray-700 text-base font-semibold mb-2">Selecionar Funcionário:</label>
+                        <select id="availability-employee-select" class="shadow-sm border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" required>
+                            <option value="">Carregando Funcionários...</option>
+                        </select>
+                    </div>
+                    <div id="days-availability-container" class="space-y-3">
+                        <!-- Checkboxes e inputs de horário para cada dia da semana -->
+                        <div class="flex items-center space-x-3 bg-gray-100 p-3 rounded-md">
+                            <input type="checkbox" id="day-0" data-day="0" class="day-checkbox h-5 w-5 text-purple-600 focus:ring-purple-500 rounded">
+                            <label for="day-0" class="text-gray-700 font-medium flex-1">Domingo</label>
+                            <input type="time" class="time-start-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                            <span class="text-gray-600">-</span>
+                            <input type="time" class="time-end-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                        </div>
+                        <div class="flex items-center space-x-3 bg-gray-100 p-3 rounded-md">
+                            <input type="checkbox" id="day-1" data-day="1" class="day-checkbox h-5 w-5 text-purple-600 focus:ring-purple-500 rounded">
+                            <label for="day-1" class="text-gray-700 font-medium flex-1">Segunda-feira</label>
+                            <input type="time" class="time-start-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                            <span class="text-gray-600">-</span>
+                            <input type="time" class="time-end-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                        </div>
+                        <div class="flex items-center space-x-3 bg-gray-100 p-3 rounded-md">
+                            <input type="checkbox" id="day-2" data-day="2" class="day-checkbox h-5 w-5 text-purple-600 focus:ring-purple-500 rounded">
+                            <label for="day-2" class="text-gray-700 font-medium flex-1">Terça-feira</label>
+                            <input type="time" class="time-start-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                            <span class="text-gray-600">-</span>
+                            <input type="time" class="time-end-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                        </div>
+                        <div class="flex items-center space-x-3 bg-gray-100 p-3 rounded-md">
+                            <input type="checkbox" id="day-3" data-day="3" class="day-checkbox h-5 w-5 text-purple-600 focus:ring-purple-500 rounded">
+                            <label for="day-3" class="text-gray-700 font-medium flex-1">Quarta-feira</label>
+                            <input type="time" class="time-start-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                            <span class="text-gray-600">-</span>
+                            <input type="time" class="time-end-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                        </div>
+                        <div class="flex items-center space-x-3 bg-gray-100 p-3 rounded-md">
+                            <input type="checkbox" id="day-4" data-day="4" class="day-checkbox h-5 w-5 text-purple-600 focus:ring-purple-500 rounded">
+                            <label for="day-4" class="text-gray-700 font-medium flex-1">Quinta-feira</label>
+                            <input type="time" class="time-start-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                            <span class="text-gray-600">-</span>
+                            <input type="time" class="time-end-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                        </div>
+                        <div class="flex items-center space-x-3 bg-gray-100 p-3 rounded-md">
+                            <input type="checkbox" id="day-5" data-day="5" class="day-checkbox h-5 w-5 text-purple-600 focus:ring-purple-500 rounded">
+                            <label for="day-5" class="text-gray-700 font-medium flex-1">Sexta-feira</label>
+                            <input type="time" class="time-start-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                            <span class="text-gray-600">-</span>
+                            <input type="time" class="time-end-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                        </div>
+                        <div class="flex items-center space-x-3 bg-gray-100 p-3 rounded-md">
+                            <input type="checkbox" id="day-6" data-day="6" class="day-checkbox h-5 w-5 text-purple-600 focus:ring-purple-500 rounded">
+                            <label for="day-6" class="text-gray-700 font-medium flex-1">Sábado</label>
+                            <input type="time" class="time-start-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                            <span class="text-gray-600">-</span>
+                            <input type="time" class="time-end-input border rounded-md p-2 text-gray-700 disabled:bg-gray-200 disabled:text-gray-500" disabled>
+                        </div>
+                    </div>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-300 ease-in-out transform hover:scale-105 text-lg"><i class="fas fa-save mr-2"></i>Salvar Disponibilidade</button>
+                </form>
+            </div>
+
+
+            <!-- Seção de Serviços -->
+            <div id="services-section" class="dashboard-content hidden space-y-6 bg-gray-50 p-8 rounded-xl shadow-inner">
+                <h3 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-4 border-gray-200">Serviços</h3>
+                <form id="add-service-form" class="bg-white p-6 rounded-lg shadow-md space-y-4 mb-8">
+                    <h4 class="text-2xl font-semibold text-gray-700 border-b pb-3 mb-4 border-gray-100">Adicionar Novo Serviço</h4>
+                    <div>
+                        <label for="service-name" class="block text-gray-700 text-base font-semibold mb-2">Nome do Serviço:</label>
+                        <input type="text" id="service-name" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" required>
+                    </div>
+                    <div>
+                        <label for="service-price" class="block text-gray-700 text-base font-semibold mb-2">Preço (R$):</label>
+                        <input type="number" id="service-price" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" step="0.01" required>
+                    </div>
+                    <div>
+                        <label for="service-duration" class="block text-gray-700 text-base font-semibold mb-2">Duração (minutos):</label>
+                        <input type="number" id="service-duration" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" required>
+                    </div>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-300 ease-in-out transform hover:scale-105 text-lg"><i class="fas fa-plus-circle mr-2"></i>Adicionar Serviço</button>
+                </form>
+
+                <h4 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-3 border-gray-200">Lista de Serviços</h4>
+                <div id="services-list" class="space-y-4">
+                    <!-- Serviços serão carregados aqui -->
+                    <p class="text-gray-500 text-center py-4">Nenhum serviço cadastrado ainda.</p>
+                </div>
+            </div>
+
+            <!-- Seção de Agendamentos -->
+            <div id="appointments-section" class="dashboard-content hidden space-y-6 bg-gray-50 p-8 rounded-xl shadow-inner">
+                <h3 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-4 border-gray-200">Agendamentos</h3>
+                <div id="appointments-list" class="space-y-4">
+                    <!-- Agendamentos serão carregados aqui -->
+                    <p class="text-gray-500 text-center py-4">Nenhum agendamento encontrado.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Página Pública de Agendamento -->
+        <div id="public-booking-section" class="hidden space-y-8">
+            <h2 id="public-establishment-name" class="text-4xl font-extrabold text-center text-gray-900 mb-4"></h2>
+            <p id="public-establishment-description" class="text-center text-gray-700 mb-8 text-lg"></p>
+
+            <form id="public-appointment-form" class="space-y-6">
+                <div>
+                    <label for="client-name" class="block text-gray-700 text-base font-semibold mb-2">Seu Nome:</label>
+                    <input type="text" id="client-name" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" required>
+                </div>
+                <div>
+                    <label for="client-phone" class="block text-gray-700 text-base font-semibold mb-2">Seu Telefone:</label>
+                    <input type="text" id="client-phone" class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" required>
+                </div>
+                <div>
+                    <label for="select-services-public" class="block text-gray-700 text-base font-semibold mb-2">Serviços:</label>
+                    <select id="select-services-public" multiple class="shadow-sm border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 h-40 transition duration-200" required>
+                        <!-- Serviços serão carregados aqui -->
+                    </select>
+                    <p class="text-sm text-gray-500 mt-2">Selecione um ou mais serviços (segure Ctrl/Cmd para múltiplos).</p>
+                </div>
+                <div>
+                    <label for="select-employee-public" class="block text-gray-700 text-base font-semibold mb-2">Funcionário:</label>
+                    <select id="select-employee-public" class="shadow-sm border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" required>
+                        <option value="">Selecione um Funcionário</option>
+                    </select>
+                </div>
+
+                <!-- Calendário Aprimorado -->
+                <div>
+                    <label class="block text-gray-700 text-base font-semibold mb-2">Selecione a Data:</label>
+                    <div class="bg-gray-50 p-6 rounded-lg shadow-md">
+                        <div class="calendar-header">
+                            <button id="prev-month-btn"><i class="fas fa-chevron-left"></i></button>
+                            <h4 id="current-month-year" class="text-xl font-bold text-gray-800"></h4>
+                            <button id="next-month-btn"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                        <div class="calendar-grid mb-4">
+                            <div class="day-name">Dom</div>
+                            <div class="day-name">Seg</div>
+                            <div class="day-name">Ter</div>
+                            <div class="day-name">Qua</div>
+                            <div class="day-name">Qui</div>
+                            <div class="day-name">Sex</div>
+                            <div class="day-name">Sáb</div>
+                        </div>
+                        <div id="calendar-days" class="calendar-grid">
+                            <!-- Dias do calendário serão gerados aqui -->
+                        </div>
+                    </div>
+                    <input type="hidden" id="appointment-date-public"> <!-- Campo oculto para armazenar a data selecionada -->
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 text-base font-semibold mb-2">Horários Disponíveis:</label>
+                    <div id="available-times-public" class="time-slots-container">
+                        <p class="text-gray-500 text-center w-full">Selecione uma data para ver os horários.</p>
+                    </div>
+                    <input type="hidden" id="selected-time-public"> <!-- Campo oculto para armazenar o horário selecionado -->
+                </div>
+
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 transition duration-300 ease-in-out transform hover:scale-105 text-lg"><i class="fas fa-calendar-check mr-2"></i>Agendar e Pagar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- HTML para a página de status de pagamento (payment-status.html) -->
+    <div id="payment-status-page" class="hidden container bg-white shadow-xl rounded-xl p-8 md:p-12 my-8 text-center">
+        <h2 id="payment-status-title" class="text-4xl font-extrabold text-gray-900 mb-4">Status do Pagamento</h2>
+        <p id="payment-status-message" class="text-xl text-gray-700 mb-8"></p>
+        <p class="text-gray-600 text-lg">Você será redirecionado em <span id="countdown" class="font-bold text-purple-600">5</span> segundos...</p>
+        <button id="go-home-button" class="mt-8 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline transition duration-300 ease-in-out transform hover:scale-105 text-lg"><i class="fas fa-home mr-2"></i>Voltar para a Página Inicial</button>
+    </div>
+
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3000/api'; // Certifique-se que esta URL corresponde ao seu backend
+
+        // Elementos do DOM
+        const appDiv = document.getElementById('app');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+
+        // Custom Confirm Modal elements
+        const customConfirmModal = document.getElementById('custom-confirm-modal');
+        const confirmMessage = document.getElementById('confirm-message');
+        const confirmYesBtn = document.getElementById('confirm-yes-btn');
+        const confirmNoBtn = document.getElementById('confirm-no-btn');
+        const closeConfirmModal = document.getElementById('close-confirm-modal');
+
+        const authSection = document.getElementById('auth-section');
+        const showLoginBtn = document.getElementById('show-login-btn');
+        const showRegisterBtn = document.getElementById('show-register-btn');
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const registerRoleSelect = document.getElementById('register-role');
+        const establishmentIdField = document.getElementById('establishment-id-field');
+        const registerEstablishmentIdInput = document.getElementById('register-establishment-id');
+
+        const plansSection = document.getElementById('plans-section'); // Nova seção de planos
+        const subscribeMonthlyBtn = document.getElementById('subscribe-monthly-btn');
+        const subscribeAnnualBtn = document.getElementById('subscribe-annual-btn');
+        const logoutPlansBtn = document.getElementById('logout-plans-btn');
+
+        const dashboardSection = document.getElementById('dashboard-section');
+        const userEmailDisplay = document.getElementById('user-email-display');
+        const userRoleDisplay = document.getElementById('user-role-display');
+        const logoutBtn = document.getElementById('logout-btn');
+        const dashboardNavBtns = document.querySelectorAll('.dashboard-nav-btn');
+        const dashboardContents = document.querySelectorAll('.dashboard-content');
+
+        const profileSection = document.getElementById('profile-section');
+        const establishmentProfileForm = document.getElementById('establishment-profile-form');
+        const establishmentNameInput = document.getElementById('establishment-name');
+        const establishmentAddressInput = document.getElementById('establishment-address');
+        const establishmentPhoneInput = document.getElementById('establishment-phone');
+        const establishmentDescriptionInput = document.getElementById('establishment-description');
+        const publicLinkDisplay = document.getElementById('public-link-display');
+        const publicLinkValue = document.getElementById('public-link-value');
+
+        const employeesSection = document.getElementById('employees-section');
+        const addEmployeeForm = document.getElementById('add-employee-form');
+        const employeeNameInput = document.getElementById('employee-name');
+        const employeeEmailInput = document.getElementById('employee-email');
+        const employeePhoneInput = document.getElementById('employee-phone');
+        const employeesList = document.getElementById('employees-list');
+
+        // Elementos da Seção de Disponibilidade
+        const availabilitySection = document.getElementById('availability-section');
+        const setAvailabilityForm = document.getElementById('set-availability-form');
+        const availabilityEmployeeSelect = document.getElementById('availability-employee-select');
+        const daysAvailabilityContainer = document.getElementById('days-availability-container');
+        const dayCheckboxes = document.querySelectorAll('.day-checkbox');
+        const timeStartInputs = document.querySelectorAll('.time-start-input');
+        const timeEndInputs = document.querySelectorAll('.time-end-input');
+
+
+        const servicesSection = document.getElementById('services-section');
+        const addServiceForm = document.getElementById('add-service-form');
+        const serviceNameInput = document.getElementById('service-name');
+        const servicePriceInput = document.getElementById('service-price');
+        const serviceDurationInput = document.getElementById('service-duration');
+        const servicesList = document.getElementById('services-list');
+
+        const appointmentsSection = document.getElementById('appointments-section');
+        const appointmentsList = document.getElementById('appointments-list');
+
+        const publicBookingSection = document.getElementById('public-booking-section');
+        const publicEstablishmentName = document.getElementById('public-establishment-name');
+        const publicEstablishmentDescription = document.getElementById('public-establishment-description');
+        const publicAppointmentForm = document.getElementById('public-appointment-form');
+        const clientNameInput = document.getElementById('client-name');
+        const clientPhoneInput = document.getElementById('client-phone');
+        const selectServicesPublic = document.getElementById('select-services-public'); // Alterado para múltiplos
+        const selectEmployeePublic = document.getElementById('select-employee-public');
+        
+        // Elementos do Calendário Aprimorado
+        const calendarDays = document.getElementById('calendar-days');
+        const currentMonthYear = document.getElementById('current-month-year');
+        const prevMonthBtn = document.getElementById('prev-month-btn');
+        const nextMonthBtn = document.getElementById('next-month-btn');
+        let currentCalendarDate = new Date(); // Data atual para o calendário
+
+        const appointmentDatePublic = document.getElementById('appointment-date-public'); // Campo oculto
+        const availableTimesPublic = document.getElementById('available-times-public'); // Container de horários
+        const selectedTimePublic = document.getElementById('selected-time-public'); // Campo oculto para o horário selecionado
+
+        // Elementos da página de status de pagamento
+        const paymentStatusPage = document.getElementById('payment-status-page');
+        const paymentStatusTitle = document.getElementById('payment-status-title');
+        const paymentStatusMessage = document.getElementById('payment-status-message');
+        const countdownSpan = document.getElementById('countdown');
+        const goHomeButton = document.getElementById('go-home-button');
+
+
+        // Estado global da aplicação
+        let currentUser = null;
+        let currentEstablishmentId = null;
+        let currentEstablishmentPublicLink = null;
+        let publicBookingEstablishmentId = null; // Usado para a página de agendamento pública
+
+        // --- Funções de UI ---
+
+        function showLoading() {
+            loadingSpinner.classList.remove('hidden');
+            loadingSpinner.classList.add('flex');
+            appDiv.classList.add('hidden');
+            paymentStatusPage.classList.add('hidden'); // Esconde a página de status de pagamento
+        }
+
+        function hideLoading() {
+            loadingSpinner.classList.add('hidden');
+            loadingSpinner.classList.remove('flex');
+            appDiv.classList.remove('hidden');
+        }
+
+        function showMessageBox(message, type = 'info') {
+            messageText.textContent = message;
+            messageBox.classList.remove('hidden');
+            messageBox.classList.remove('bg-blue-100', 'border-blue-500', 'text-blue-700');
+            messageBox.classList.remove('bg-red-100', 'border-red-500', 'text-red-700');
+            messageBox.classList.remove('bg-green-100', 'border-green-500', 'text-green-700');
+
+            if (type === 'error') {
+                messageBox.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+            } else if (type === 'success') {
+                messageBox.classList.add('bg-green-100', 'border-green-500', 'text-green-700');
+            } else {
+                messageBox.classList.add('bg-blue-100', 'border-blue-500', 'text-blue-700');
+            }
+        }
+
+        function hideMessageBox() {
+            messageBox.classList.add('hidden');
+        }
+
+        // Custom Confirmation Modal
+        let confirmPromiseResolve;
+        function showCustomConfirm(message) {
+            confirmMessage.textContent = message;
+            customConfirmModal.classList.add('flex');
+            customConfirmModal.classList.remove('hidden');
+            return new Promise((resolve) => {
+                confirmPromiseResolve = resolve;
+            });
+        }
+
+        function hideCustomConfirm() {
+            customConfirmModal.classList.add('hidden');
+            customConfirmModal.classList.remove('flex');
+        }
+
+        confirmYesBtn.addEventListener('click', () => {
+            hideCustomConfirm();
+            if (confirmPromiseResolve) {
+                confirmPromiseResolve(true);
+            }
+        });
+
+        confirmNoBtn.addEventListener('click', () => {
+            hideCustomConfirm();
+            if (confirmPromiseResolve) {
+                confirmPromiseResolve(false);
+            }
+        });
+
+        closeConfirmModal.addEventListener('click', () => {
+            hideCustomConfirm();
+            if (confirmPromiseResolve) {
+                confirmPromiseResolve(false); // Treat closing as 'No'
+            }
+        });
+
+
+        function showSection(sectionId) {
+            // Esconde todas as seções principais
+            authSection.classList.add('hidden');
+            dashboardSection.classList.add('hidden');
+            publicBookingSection.classList.add('hidden');
+            plansSection.classList.add('hidden'); // Esconde a seção de planos também
+            paymentStatusPage.classList.add('hidden'); // Esconde a página de status de pagamento
+
+            // Mostra a seção desejada
+            document.getElementById(sectionId).classList.remove('hidden');
+        }
+
+        function showDashboardContent(contentId) {
+            dashboardContents.forEach(content => content.classList.add('hidden'));
+            document.getElementById(contentId).classList.remove('hidden');
+        }
+
+        function clearForms() {
+            loginForm.reset();
+            registerForm.reset();
+            establishmentProfileForm.reset();
+            addEmployeeForm.reset();
+            addServiceForm.reset();
+            setAvailabilityForm.reset(); // Limpa o formulário de disponibilidade
+            publicAppointmentForm.reset();
+        }
+
+        // --- Funções de Autenticação e Estado ---
+
+        function saveAuthData(token, role, establishmentId) {
+            localStorage.setItem('jwtToken', token);
+            localStorage.setItem('userRole', role);
+            if (establishmentId) {
+                localStorage.setItem('establishmentId', establishmentId);
+            } else {
+                localStorage.removeItem('establishmentId');
+            }
+            currentUser = { token, role, establishmentId };
+            currentEstablishmentId = establishmentId;
+        }
+
+        function loadAuthData() {
+            const token = localStorage.getItem('jwtToken');
+            const role = localStorage.getItem('userRole');
+            const establishmentId = localStorage.getItem('establishmentId');
+            if (token && role) {
+                currentUser = { token, role, establishmentId };
+                currentEstablishmentId = establishmentId;
+                return true;
+            }
+            return false;
+        }
+
+        function clearAuthData() {
+            localStorage.removeItem('jwtToken');
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('establishmentId');
+            currentUser = null;
+            currentEstablishmentId = null;
+            currentEstablishmentPublicLink = null;
+        }
+
+        async function checkAuthAndNavigate() {
+            const path = window.location.pathname;
+            const urlParams = new URLSearchParams(window.location.search);
+            const appointmentId = urlParams.get('appointmentId');
+
+            if (path.startsWith('/payment-success') || path.startsWith('/payment-failure') || path.startsWith('/payment-pending')) {
+                handlePaymentStatusPage(path, appointmentId);
+                return;
+            }
+
+            if (path.startsWith('/public/')) {
+                publicBookingEstablishmentId = path.split('/')[2];
+                if (publicBookingEstablishmentId) {
+                    await loadPublicBookingPage(publicBookingEstablishmentId);
+                    return;
+                }
+            }
+
+            if (loadAuthData()) {
+                userEmailDisplay.textContent = localStorage.getItem('userEmail') || 'Usuário';
+                userRoleDisplay.textContent = currentUser.role;
+
+                // Se for um estabelecimento, verifica o plano ativo
+                if (currentUser.role === 'establishment' && currentUser.establishmentId) {
+                    await checkEstablishmentPlanStatus(currentUser.establishmentId);
+                } else {
+                    // Para funcionários ou estabelecimentos sem ID ainda, mostra o dashboard
+                    showSection('dashboard-section');
+                    await fetchEstablishmentProfile();
+                    showDashboardContent('profile-section');
+                }
+            } else {
+                showSection('auth-section');
+            }
+            hideLoading();
+        }
+
+        // --- Validação do Plano Ativo ---
+        async function checkEstablishmentPlanStatus(establishmentId) {
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/establishments/${establishmentId}`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                const data = await response.json();
+
+                if (response.ok && data.planoAtivo) {
+                    // Plano ativo, mostra o dashboard
+                    showSection('dashboard-section');
+                    await fetchEstablishmentProfile();
+                    showDashboardContent('profile-section');
+                } else {
+                    // Plano inativo ou não encontrado, mostra a seção de planos
+                    showSection('plans-section');
+                    showMessageBox('Seu plano não está ativo. Por favor, assine um plano para continuar.', 'info');
+                }
+            } catch (error) {
+                console.error('Erro ao verificar status do plano:', error);
+                showMessageBox('Erro ao verificar status do plano. Tente novamente.', 'error');
+                showSection('auth-section'); // Volta para login em caso de erro grave
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // --- Event Listeners de Autenticação ---
+
+        showLoginBtn.addEventListener('click', () => {
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+            showLoginBtn.classList.add('bg-purple-600', 'text-white');
+            showLoginBtn.classList.remove('bg-purple-100', 'text-purple-700');
+            showRegisterBtn.classList.add('bg-transparent', 'text-purple-700');
+            showRegisterBtn.classList.remove('bg-purple-600', 'text-white');
+        });
+
+        showRegisterBtn.addEventListener('click', () => {
+            registerForm.classList.remove('hidden');
+            loginForm.classList.add('hidden');
+            showRegisterBtn.classList.add('bg-purple-600', 'text-white');
+            showRegisterBtn.classList.remove('bg-purple-100', 'text-purple-700');
+            showLoginBtn.classList.add('bg-transparent', 'text-purple-700');
+            showLoginBtn.classList.remove('bg-purple-600', 'text-white');
+        });
+
+        registerRoleSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'employee') {
+                establishmentIdField.classList.remove('hidden');
+                registerEstablishmentIdInput.setAttribute('required', 'true');
+            } else {
+                establishmentIdField.classList.add('hidden');
+                registerEstablishmentIdInput.removeAttribute('required');
+            }
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading();
+            hideMessageBox();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    saveAuthData(data.token, data.role, data.establishmentId);
+                    localStorage.setItem('userEmail', email); // Salva o email para exibição
+                    userEmailDisplay.textContent = email;
+                    userRoleDisplay.textContent = data.role;
+
+                    if (data.role === 'establishment' && data.establishmentId) {
+                        await checkEstablishmentPlanStatus(data.establishmentId);
+                    } else {
+                        showMessageBox('Login bem-sucedido!', 'success');
+                        showSection('dashboard-section');
+                        await fetchEstablishmentProfile();
+                        showDashboardContent('profile-section');
+                    }
+                } else {
+                    showMessageBox(data.message || 'Erro no login.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor.', 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading();
+            hideMessageBox();
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const role = registerRoleSelect.value;
+            const establishmentId = registerEstablishmentIdInput.value;
+
+            const payload = { email, password, role };
+            if (role === 'employee' && establishmentId) {
+                payload.establishmentId = establishmentId;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessageBox('Registro realizado com sucesso! Agora você pode fazer login.', 'success');
+                    clearForms();
+                    showLoginBtn.click(); // Volta para a tela de login
+                } else {
+                    showMessageBox(data.message || 'Erro no registro.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor.', 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            clearAuthData();
+            showMessageBox('Você foi desconectado.', 'info');
+            showSection('auth-section');
+            clearForms();
+        });
+
+        logoutPlansBtn.addEventListener('click', () => {
+            clearAuthData();
+            showMessageBox('Você foi desconectado.', 'info');
+            showSection('auth-section');
+            clearForms();
+        });
+
+        // --- Funções de Assinatura (Mercado Pago) ---
+        subscribeMonthlyBtn.addEventListener('click', async () => {
+            if (!currentUser || currentUser.role !== 'establishment' || !currentUser.establishmentId) {
+                showMessageBox('Você precisa estar logado como proprietário de um estabelecimento para assinar um plano.', 'error');
+                return;
+            }
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/subscriptions/monthly`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentUser.token}`
+                    }
+                });
+                const data = await response.json();
+
+                if (response.ok && data.init_point) {
+                    window.location.href = data.init_point; // Redireciona para o Mercado Pago
+                } else {
+                    showMessageBox(data.message || 'Erro ao iniciar assinatura mensal.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao conectar ao servidor para assinar plano mensal:', error);
+                showMessageBox('Erro ao conectar ao servidor para assinar plano mensal.', 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        subscribeAnnualBtn.addEventListener('click', async () => {
+            if (!currentUser || currentUser.role !== 'establishment' || !currentUser.establishmentId) {
+                showMessageBox('Você precisa estar logado como proprietário de um estabelecimento para assinar um plano.', 'error');
+                return;
+            }
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/subscriptions/annual`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentUser.token}`
+                    }
+                });
+                const data = await response.json();
+
+                if (response.ok && data.init_point) {
+                    window.location.href = data.init_point; // Redireciona para o Mercado Pago
+                } else {
+                    showMessageBox(data.message || 'Erro ao iniciar assinatura anual.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao conectar ao servidor para assinar plano anual:', error);
+                showMessageBox('Erro ao conectar ao servidor para assinar plano anual.', 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+
+        // --- Funções do Dashboard ---
+
+        dashboardNavBtns.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const targetId = e.target.id.replace('show-', '').replace('-btn', '-section');
+                showDashboardContent(targetId);
+
+                // Remove a classe 'bg-purple-600' e adiciona 'bg-purple-500' de todos os botões de navegação
+                dashboardNavBtns.forEach(navBtn => {
+                    navBtn.classList.remove('bg-purple-600');
+                    navBtn.classList.add('bg-purple-500');
+                });
+                // Adiciona a classe 'bg-purple-600' e remove 'bg-purple-500' do botão clicado
+                e.target.classList.remove('bg-purple-500');
+                e.target.classList.add('bg-purple-600');
+
+
+                // Carrega dados específicos quando a seção é mostrada
+                if (targetId === 'profile-section') {
+                    await fetchEstablishmentProfile();
+                } else if (targetId === 'employees-section') {
+                    await fetchEmployees();
+                } else if (targetId === 'availability-section') { // Nova seção de disponibilidade
+                    await fetchEmployeesForAvailability(); // Carrega funcionários para o select
+                    await loadEmployeeAvailability(); // Carrega a disponibilidade do funcionário selecionado (se houver)
+                }
+                else if (targetId === 'services-section') {
+                    await fetchServices();
+                } else if (targetId === 'appointments-section') {
+                    await fetchAppointments();
+                }
+            });
+        });
+
+        // --- Perfil do Estabelecimento ---
+
+        async function fetchEstablishmentProfile() {
+            if (!currentUser || currentUser.role !== 'establishment' || !currentEstablishmentId) {
+                // Se não for um estabelecimento ou não tiver ID, pode ser um funcionário ou um estabelecimento sem perfil ainda
+                // Esconde o formulário se não for o proprietário
+                establishmentProfileForm.classList.add('hidden');
+                publicLinkDisplay.classList.add('hidden');
+                if (currentUser.role === 'establishment') {
+                    showMessageBox('Você precisa criar o perfil do seu estabelecimento.', 'info');
+                    establishmentProfileForm.classList.remove('hidden'); // Mostra para o proprietário criar
+                } else {
+                    showMessageBox('Você não tem permissão para gerenciar o perfil do estabelecimento.', 'info');
+                }
+                return;
+            }
+
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/establishments/${currentEstablishmentId}`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    establishmentNameInput.value = data.name;
+                    establishmentAddressInput.value = data.address;
+                    establishmentPhoneInput.value = data.phone;
+                    establishmentDescriptionInput.value = data.description || '';
+                    currentEstablishmentPublicLink = `${window.location.origin}/public${data.publicLink}`;
+                    publicLinkValue.href = currentEstablishmentPublicLink;
+                    publicLinkValue.textContent = currentEstablishmentPublicLink;
+                    publicLinkDisplay.classList.remove('hidden');
+                    establishmentProfileForm.classList.remove('hidden'); // Garante que o formulário está visível
+                } else {
+                    showMessageBox(data.message || 'Erro ao carregar perfil do estabelecimento.', 'error');
+                    // Se o estabelecimento não tiver perfil, permite criar
+                    if (response.status === 404 && currentUser.role === 'establishment') {
+                        showMessageBox('Crie o perfil do seu estabelecimento.', 'info');
+                        establishmentProfileForm.classList.remove('hidden');
+                        publicLinkDisplay.classList.add('hidden');
+                    }
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para carregar perfil.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        establishmentProfileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading();
+            hideMessageBox();
+
+            const name = establishmentNameInput.value;
+            const address = establishmentAddressInput.value;
+            const phone = establishmentPhoneInput.value;
+            const description = establishmentDescriptionInput.value;
+
+            const method = currentEstablishmentId ? 'PUT' : 'POST';
+            const url = currentEstablishmentId ? `${API_BASE_URL}/establishments/${currentEstablishmentId}` : `${API_BASE_URL}/establishments`;
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentUser.token}`
+                    },
+                    body: JSON.stringify({ name, address, phone, description })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessageBox(data.message, 'success');
+                    // Atualiza o ID do estabelecimento se foi criado agora
+                    if (!currentEstablishmentId && data.establishment) {
+                        currentEstablishmentId = data.establishment._id;
+                        localStorage.setItem('establishmentId', currentEstablishmentId);
+                        currentUser.establishmentId = currentEstablishmentId; // Atualiza o objeto currentUser
+                    }
+                    // Atualiza o link público
+                    currentEstablishmentPublicLink = data.publicLink;
+                    publicLinkValue.href = currentEstablishmentPublicLink;
+                    publicLinkValue.textContent = currentEstablishmentPublicLink;
+                    publicLinkDisplay.classList.remove('hidden');
+                } else {
+                    showMessageBox(data.message || 'Erro ao salvar perfil.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para salvar perfil.', 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        function copyPublicLink() {
+            const link = publicLinkValue.textContent;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(link)
+                    .then(() => showMessageBox('Link copiado para a área de transferência!', 'success'))
+                    .catch(err => {
+                        console.error('Erro ao copiar:', err);
+                        fallbackCopyTextToClipboard(link);
+                    });
+            } else {
+                fallbackCopyTextToClipboard(link);
+            }
+        }
+
+        function fallbackCopyTextToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed"; // Evita rolagem para fora da tela
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showMessageBox('Link copiado para a área de transferência! (Método fallback)', 'success');
+            } catch (err) {
+                showMessageBox('Falha ao copiar o link.', 'error');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // --- Funcionários ---
+
+        async function fetchEmployees() {
+            if (!currentEstablishmentId) {
+                employeesList.innerHTML = '<p class="text-gray-500 text-center">Crie o perfil do seu estabelecimento primeiro.</p>';
+                return;
+            }
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/employees/${currentEstablishmentId}`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    renderEmployees(data);
+                } else {
+                    showMessageBox(data.message || 'Erro ao carregar funcionários.', 'error');
+                    employeesList.innerHTML = '<p class="text-gray-500 text-center">Erro ao carregar funcionários.</p>';
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para carregar funcionários.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function renderEmployees(employees) {
+            employeesList.innerHTML = '';
+            if (employees.length === 0) {
+                employeesList.innerHTML = '<p class="text-gray-500 text-center py-4">Nenhum funcionário cadastrado ainda.</p>';
+                return;
+            }
+            employees.forEach(employee => {
+                const employeeCard = document.createElement('div');
+                employeeCard.className = 'bg-white p-5 rounded-lg shadow-md flex justify-between items-center border border-gray-100';
+                employeeCard.innerHTML = `
+                    <div>
+                        <p class="font-semibold text-gray-800 text-lg">${employee.name}</p>
+                        <p class="text-sm text-gray-600">${employee.email || 'N/A'}</p>
+                        <p class="text-sm text-gray-600">${employee.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <button data-id="${employee._id}" class="edit-employee-btn bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-bold py-2 px-3 rounded-md mr-2 transition duration-300 ease-in-out transform hover:scale-105"><i class="fas fa-edit"></i></button>
+                        <button data-id="${employee._id}" class="delete-employee-btn bg-red-500 hover:bg-red-600 text-white text-sm font-bold py-2 px-3 rounded-md transition duration-300 ease-in-out transform hover:scale-105"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `;
+                employeesList.appendChild(employeeCard);
+            });
+
+            document.querySelectorAll('.delete-employee-btn').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const employeeId = e.target.dataset.id;
+                    const confirmed = await showCustomConfirm('Tem certeza que deseja deletar este funcionário?');
+                    if (confirmed) {
+                        await deleteEmployee(employeeId);
+                    }
+                });
+            });
+            // Implementar edição se necessário
+        }
+
+        addEmployeeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading();
+            hideMessageBox();
+
+            const name = employeeNameInput.value;
+            const email = employeeEmailInput.value;
+            const phone = employeePhoneInput.value;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/employees`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentUser.token}`
+                    },
+                    body: JSON.stringify({ name, email, phone })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessageBox(data.message, 'success');
+                    addEmployeeForm.reset();
+                    await fetchEmployees(); // Recarrega a lista
+                } else {
+                    showMessageBox(data.message || 'Erro ao adicionar funcionário.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para adicionar funcionário.', 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        async function deleteEmployee(employeeId) {
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/employees/${employeeId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessageBox(data.message, 'success');
+                    await fetchEmployees(); // Recarrega a lista
+                } else {
+                    showMessageBox(data.message || 'Erro ao deletar funcionário.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para deletar funcionário.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // --- Disponibilidade ---
+
+        async function fetchEmployeesForAvailability() {
+            if (!currentEstablishmentId) {
+                availabilityEmployeeSelect.innerHTML = '<option value="">Crie o perfil do seu estabelecimento primeiro.</option>';
+                return;
+            }
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/employees/${currentEstablishmentId}`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    availabilityEmployeeSelect.innerHTML = '<option value="">Selecione um Funcionário</option>';
+                    data.forEach(employee => {
+                        const option = document.createElement('option');
+                        option.value = employee._id;
+                        option.textContent = employee.name;
+                        availabilityEmployeeSelect.appendChild(option);
+                    });
+                } else {
+                    showMessageBox(data.message || 'Erro ao carregar funcionários para disponibilidade.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para carregar funcionários para disponibilidade.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        availabilityEmployeeSelect.addEventListener('change', async (e) => {
+            const employeeId = e.target.value;
+            if (employeeId) {
+                await loadEmployeeAvailability(employeeId);
+            } else {
+                // Limpa os campos de disponibilidade se nenhum funcionário for selecionado
+                dayCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                    checkbox.closest('div').querySelector('.time-start-input').value = '';
+                    checkbox.closest('div').querySelector('.time-end-input').value = '';
+                    checkbox.closest('div').querySelector('.time-start-input').disabled = true;
+                    checkbox.closest('div').querySelector('.time-end-input').disabled = true;
+                });
+            }
+        });
+
+        dayCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const startInput = e.target.closest('div').querySelector('.time-start-input');
+                const endInput = e.target.closest('div').querySelector('.time-end-input');
+                startInput.disabled = !e.target.checked;
+                endInput.disabled = !e.target.checked;
+                if (!e.target.checked) {
+                    startInput.value = '';
+                    endInput.value = '';
+                }
+            });
+        });
+
+        async function loadEmployeeAvailability(employeeId = availabilityEmployeeSelect.value) {
+            if (!employeeId) return;
+
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/availability/${employeeId}`);
+                const data = await response.json();
+
+                // Limpa todos os campos antes de preencher
+                dayCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                    checkbox.closest('div').querySelector('.time-start-input').value = '';
+                    checkbox.closest('div').querySelector('.time-end-input').value = '';
+                    checkbox.closest('div').querySelector('.time-start-input').disabled = true;
+                    checkbox.closest('div').querySelector('.time-end-input').disabled = true;
+                });
+
+                if (response.ok && data.days) {
+                    data.days.forEach(day => {
+                        const checkbox = document.querySelector(`.day-checkbox[data-day="${day.dayOfWeek}"]`);
+                        if (checkbox) {
+                            checkbox.checked = true;
+                            const startInput = checkbox.closest('div').querySelector('.time-start-input');
+                            const endInput = checkbox.closest('div').querySelector('.time-end-input');
+                            startInput.disabled = false;
+                            endInput.disabled = false;
+                            // Assume um único intervalo por dia para simplificar a UI
+                            if (day.intervals && day.intervals.length > 0) {
+                                startInput.value = day.intervals[0].start;
+                                endInput.value = day.intervals[0].end;
+                            }
+                        }
+                    });
+                } else if (response.status === 404) {
+                    showMessageBox('Nenhuma disponibilidade configurada para este funcionário.', 'info');
+                } else {
+                    showMessageBox(data.message || 'Erro ao carregar disponibilidade.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para carregar disponibilidade.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        setAvailabilityForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading();
+            hideMessageBox();
+
+            const employeeId = availabilityEmployeeSelect.value;
+            if (!employeeId) {
+                showMessageBox('Selecione um funcionário.', 'error');
+                hideLoading();
+                return;
+            }
+
+            const days = [];
+            let isValid = true;
+            dayCheckboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    const dayOfWeek = parseInt(checkbox.dataset.day);
+                    const startInput = checkbox.closest('div').querySelector('.time-start-input');
+                    const endInput = checkbox.closest('div').querySelector('.time-end-input');
+                    const start = startInput.value;
+                    const end = endInput.value;
+
+                    if (start && end) {
+                        days.push({
+                            dayOfWeek: dayOfWeek,
+                            intervals: [{ start, end }]
+                        });
+                    } else {
+                        showMessageBox(`Preencha os horários para ${checkbox.nextElementSibling.textContent}.`, 'error');
+                        isValid = false;
+                    }
+                }
+            });
+
+            if (!isValid) {
+                hideLoading();
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/availability`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentUser.token}`
+                    },
+                    body: JSON.stringify({ employeeId, days })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessageBox(data.message, 'success');
+                } else {
+                    showMessageBox(data.message || 'Erro ao salvar disponibilidade.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para salvar disponibilidade.', 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+
+        // --- Serviços ---
+
+        async function fetchServices() {
+            if (!currentEstablishmentId) {
+                servicesList.innerHTML = '<p class="text-gray-500 text-center py-4">Crie o perfil do seu estabelecimento primeiro.</p>';
+                return;
+            }
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/services/${currentEstablishmentId}`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    renderServices(data);
+                } else {
+                    showMessageBox(data.message || 'Erro ao carregar serviços.', 'error');
+                    servicesList.innerHTML = '<p class="text-gray-500 text-center py-4">Erro ao carregar serviços.</p>';
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para carregar serviços.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function renderServices(services) {
+            servicesList.innerHTML = '';
+            if (services.length === 0) {
+                servicesList.innerHTML = '<p class="text-gray-500 text-center py-4">Nenhum serviço cadastrado ainda.</p>';
+                return;
+            }
+            services.forEach(service => {
+                const serviceCard = document.createElement('div');
+                serviceCard.className = 'bg-white p-5 rounded-lg shadow-md flex justify-between items-center border border-gray-100';
+                serviceCard.innerHTML = `
+                    <div>
+                        <p class="font-semibold text-gray-800 text-lg">${service.name}</p>
+                        <p class="text-sm text-gray-600">R$ ${service.price.toFixed(2)}</p>
+                        <p class="text-sm text-gray-600">${service.duration} minutos</p>
+                    </div>
+                    <div>
+                        <button data-id="${service._id}" class="edit-service-btn bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-bold py-2 px-3 rounded-md mr-2 transition duration-300 ease-in-out transform hover:scale-105"><i class="fas fa-edit"></i></button>
+                        <button data-id="${service._id}" class="delete-service-btn bg-red-500 hover:bg-red-600 text-white text-sm font-bold py-2 px-3 rounded-md transition duration-300 ease-in-out transform hover:scale-105"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `;
+                servicesList.appendChild(serviceCard);
+            });
+
+            document.querySelectorAll('.delete-service-btn').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const serviceId = e.target.dataset.id;
+                    const confirmed = await showCustomConfirm('Tem certeza que deseja deletar este serviço?');
+                    if (confirmed) {
+                        await deleteService(serviceId);
+                    }
+                });
+            });
+            // Implementar edição se necessário
+        }
+
+        addServiceForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading();
+            hideMessageBox();
+
+            const name = serviceNameInput.value;
+            const price = parseFloat(servicePriceInput.value);
+            const duration = parseInt(serviceDurationInput.value);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/services`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentUser.token}`
+                    },
+                    body: JSON.stringify({ name, price, duration })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessageBox(data.message, 'success');
+                    addServiceForm.reset();
+                    await fetchServices(); // Recarrega a lista
+                } else {
+                    showMessageBox(data.message || 'Erro ao adicionar serviço.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para adicionar serviço.', 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        async function deleteService(serviceId) {
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/services/${serviceId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessageBox(data.message, 'success');
+                    await fetchServices(); // Recarrega a lista
+                } else {
+                    showMessageBox(data.message || 'Erro ao deletar serviço.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para deletar serviço.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // --- Agendamentos (Dashboard) ---
+
+        async function fetchAppointments() {
+            if (!currentEstablishmentId) {
+                appointmentsList.innerHTML = '<p class="text-gray-500 text-center py-4">Crie o perfil do seu estabelecimento primeiro.</p>';
+                return;
+            }
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/appointments/${currentEstablishmentId}`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    renderAppointments(data);
+                } else {
+                    showMessageBox(data.message || 'Erro ao carregar agendamentos.', 'error');
+                    appointmentsList.innerHTML = '<p class="text-gray-500 text-center py-4">Erro ao carregar agendamentos.</p>';
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para carregar agendamentos.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function renderAppointments(appointments) {
+            appointmentsList.innerHTML = '';
+            if (appointments.length === 0) {
+                appointmentsList.innerHTML = '<p class="text-gray-500 text-center py-4">Nenhum agendamento encontrado.</p>';
+                return;
+            }
+            appointments.sort((a, b) => new Date(a.appointmentDate) - new Date(b.appointmentDate)); // Ordena por data
+
+            appointments.forEach(appointment => {
+                const apptDate = new Date(appointment.appointmentDate);
+                const formattedDate = apptDate.toLocaleDateString('pt-BR');
+                const formattedTime = apptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                const serviceNames = appointment.serviceIds.map(s => s.name).join(', ');
+                const totalAmount = appointment.totalAmount.toFixed(2);
+
+                const appointmentCard = document.createElement('div');
+                appointmentCard.className = 'bg-white p-5 rounded-lg shadow-md space-y-3 border border-gray-100';
+                appointmentCard.innerHTML = `
+                    <p class="font-semibold text-gray-800 text-lg"><i class="fas fa-user mr-2 text-purple-500"></i>Cliente: ${appointment.clientName} (<a href="tel:${appointment.clientPhone}" class="text-blue-600 hover:underline">${appointment.clientPhone}</a>)</p>
+                    <p class="text-gray-700"><i class="fas fa-cut mr-2 text-purple-500"></i>Serviços: ${serviceNames} (Total: <span class="font-bold">R$ ${totalAmount}</span>)</p>
+                    <p class="text-gray-700"><i class="fas fa-user-tie mr-2 text-purple-500"></i>Funcionário: ${appointment.employeeId.name}</p>
+                    <p class="text-gray-700"><i class="fas fa-clock mr-2 text-purple-500"></i>Data/Hora: <span class="font-medium">${formattedDate} às ${formattedTime}</span></p>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-base font-medium ${
+                            appointment.status === 'pending_payment' ? 'text-yellow-600' :
+                            appointment.status === 'confirmed' ? 'text-green-600' :
+                            appointment.status === 'completed' ? 'text-blue-600' :
+                            'text-red-600'
+                        } capitalize"><i class="fas fa-info-circle mr-1"></i>Status: ${appointment.status.replace('_', ' ')}</span>
+                        <select data-id="${appointment._id}" class="status-select bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 transition duration-200">
+                            <option value="pending_payment" ${appointment.status === 'pending_payment' ? 'selected' : ''}>Pendente Pagamento</option>
+                            <option value="confirmed" ${appointment.status === 'confirmed' ? 'selected' : ''}>Confirmado</option>
+                            <option value="completed" ${appointment.status === 'completed' ? 'selected' : ''}>Concluído</option>
+                            <option value="cancelled" ${appointment.status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
+                        </select>
+                    </div>
+                `;
+                appointmentsList.appendChild(appointmentCard);
+            });
+
+            document.querySelectorAll('.status-select').forEach(select => {
+                select.addEventListener('change', async (e) => {
+                    const appointmentId = e.target.dataset.id;
+                    const newStatus = e.target.value;
+                    await updateAppointmentStatus(appointmentId, newStatus);
+                });
+            });
+        }
+
+        async function updateAppointmentStatus(appointmentId, status) {
+            showLoading();
+            hideMessageBox();
+            try {
+                const response = await fetch(`${API_BASE_URL}/appointments/${appointmentId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentUser.token}`
+                    },
+                    body: JSON.stringify({ status })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessageBox(data.message, 'success');
+                    await fetchAppointments(); // Recarrega a lista
+                } else {
+                    showMessageBox(data.message || 'Erro ao atualizar status.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para atualizar status.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // --- Página Pública de Agendamento ---
+
+        async function loadPublicBookingPage(establishmentId) {
+            showLoading();
+            showSection('public-booking-section');
+            try {
+                const response = await fetch(`${API_BASE_URL}/public/establishment/${establishmentId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    publicEstablishmentName.textContent = data.establishment.name;
+                    publicEstablishmentDescription.textContent = data.establishment.description || 'Bem-vindo(a)! Agende seu horário conosco.';
+
+                    // Popular serviços (agora com seleção múltipla)
+                    selectServicesPublic.innerHTML = ''; // Limpa antes de popular
+                    data.services.forEach(service => {
+                        const option = document.createElement('option');
+                        option.value = service._id;
+                        option.textContent = `${service.name} (R$ ${service.price.toFixed(2)} - ${service.duration} min)`;
+                        selectServicesPublic.appendChild(option);
+                    });
+
+                    // Popular funcionários
+                    selectEmployeePublic.innerHTML = '<option value="">Selecione um Funcionário</option>';
+                    data.employees.forEach(employee => {
+                        const option = document.createElement('option');
+                        option.value = employee._id;
+                        option.textContent = employee.name;
+                        selectEmployeePublic.appendChild(option);
+                    });
+
+                    // Inicializa o calendário e adiciona listeners
+                    renderCalendar();
+                    prevMonthBtn.addEventListener('click', () => changeMonth(-1));
+                    nextMonthBtn.addEventListener('click', () => changeMonth(1));
+                    
+                    // Adiciona listeners para carregar horários disponíveis quando funcionário ou data mudam
+                    selectEmployeePublic.addEventListener('change', fetchAvailableTimes);
+                    // O listener para a data será no evento de clique nos dias do calendário
+                    
+                } else {
+                    showMessageBox(data.message || 'Estabelecimento não encontrado ou erro ao carregar.', 'error');
+                    publicBookingSection.innerHTML = `<p class="text-center text-red-500 text-lg mt-8">${data.message || 'Estabelecimento não encontrado.'}</p>`;
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para carregar a página de agendamento.', 'error');
+                publicBookingSection.innerHTML = `<p class="text-center text-red-500 text-lg mt-8">Erro ao carregar a página de agendamento. Tente novamente mais tarde.</p>`;
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // --- Funções do Calendário ---
+        function renderCalendar() {
+            calendarDays.innerHTML = '';
+            const year = currentCalendarDate.getFullYear();
+            const month = currentCalendarDate.getMonth();
+            currentMonthYear.textContent = new Date(year, month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+            const firstDayOfMonth = new Date(year, month, 1);
+            const lastDayOfMonth = new Date(year, month + 1, 0);
+            const daysInMonth = lastDayOfMonth.getDate();
+
+            // Ajusta o dia da semana para começar no domingo (0)
+            const firstDayOfWeek = firstDayOfMonth.getDay(); // 0 for Sunday, 1 for Monday, etc.
+
+            // Preenche os dias do mês anterior
+            for (let i = 0; i < firstDayOfWeek; i++) {
+                const prevMonthDay = new Date(year, month, 0).getDate() - (firstDayOfWeek - 1 - i);
+                const dayElement = document.createElement('div');
+                dayElement.classList.add('calendar-day', 'other-month');
+                dayElement.textContent = prevMonthDay;
+                calendarDays.appendChild(dayElement);
+            }
+
+            // Preenche os dias do mês atual
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayElement = document.createElement('div');
+                dayElement.classList.add('calendar-day', 'current-month');
+                dayElement.textContent = day;
+                dayElement.dataset.date = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+                // Marca o dia atual
+                const today = new Date();
+                if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                    dayElement.classList.add('today');
+                }
+
+                dayElement.addEventListener('click', (e) => {
+                    // Remove a seleção de outros dias
+                    document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
+                    // Adiciona a seleção ao dia clicado
+                    e.target.classList.add('selected');
+                    // Atualiza o campo oculto com a data selecionada
+                    appointmentDatePublic.value = e.target.dataset.date;
+                    // Busca horários disponíveis para a nova data
+                    fetchAvailableTimes();
+                });
+                calendarDays.appendChild(dayElement);
+            }
+
+            // Preenche os dias do próximo mês
+            const totalDaysDisplayed = firstDayOfWeek + daysInMonth;
+            const remainingDays = 42 - totalDaysDisplayed; // 6 rows * 7 days = 42 total cells
+            for (let i = 1; i <= remainingDays; i++) {
+                const dayElement = document.createElement('div');
+                dayElement.classList.add('calendar-day', 'other-month');
+                dayElement.textContent = i;
+                calendarDays.appendChild(dayElement);
+            }
+        }
+
+        function changeMonth(offset) {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + offset);
+            renderCalendar();
+            // Limpa horários disponíveis e seleção de data ao mudar o mês
+            appointmentDatePublic.value = '';
+            selectedTimePublic.value = '';
+            availableTimesPublic.innerHTML = '<p class="text-gray-500 text-center w-full">Selecione uma data para ver os horários.</p>';
+        }
+
+        async function fetchAvailableTimes() {
+            const employeeId = selectEmployeePublic.value;
+            const date = appointmentDatePublic.value; // Data formatada YYYY-MM-DD
+
+            if (!employeeId || !date) {
+                availableTimesPublic.innerHTML = '<p class="text-gray-500 text-center w-full">Selecione um Funcionário e Data</p>';
+                return;
+            }
+
+            showLoading();
+            try {
+                const response = await fetch(`${API_BASE_URL}/public/available-times/${employeeId}/${date}`);
+                const data = await response.json();
+
+                availableTimesPublic.innerHTML = ''; // Limpa antes de popular
+                if (response.ok && data.availableTimes && data.availableTimes.length > 0) {
+                    data.availableTimes.forEach(time => {
+                        const timeSlot = document.createElement('div');
+                        timeSlot.classList.add('time-slot');
+                        timeSlot.textContent = time;
+                        timeSlot.dataset.time = time; // Armazena o horário no dataset
+
+                        timeSlot.addEventListener('click', () => {
+                            // Remove a seleção de outros horários
+                            document.querySelectorAll('.time-slot').forEach(slot => slot.classList.remove('selected-time'));
+                            // Adiciona a seleção ao horário clicado
+                            timeSlot.classList.add('selected-time');
+                            // Atualiza o campo oculto com o horário selecionado
+                            selectedTimePublic.value = time;
+                        });
+                        availableTimesPublic.appendChild(timeSlot);
+                    });
+                } else {
+                    availableTimesPublic.innerHTML = '<p class="text-gray-500 text-center w-full">Nenhum horário disponível para esta data e funcionário.</p>';
+                    showMessageBox(data.message || 'Nenhum horário disponível para esta data e funcionário.', 'info');
+                }
+            } catch (error) {
+                console.error('Erro ao buscar horários disponíveis:', error);
+                showMessageBox('Erro ao buscar horários disponíveis.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        publicAppointmentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoading();
+            hideMessageBox();
+
+            const clientName = clientNameInput.value;
+            const clientPhone = clientPhoneInput.value;
+            const selectedServiceOptions = Array.from(selectServicesPublic.selectedOptions);
+            const serviceIds = selectedServiceOptions.map(option => option.value);
+            const employeeId = selectEmployeePublic.value;
+            const appointmentDate = appointmentDatePublic.value; // Data (YYYY-MM-DD) do campo oculto
+            const appointmentTime = selectedTimePublic.value; // Horário (HH:mm) do campo oculto
+
+            if (!publicBookingEstablishmentId) {
+                showMessageBox('Erro: ID do estabelecimento não encontrado na URL.', 'error');
+                hideLoading();
+                return;
+            }
+            if (serviceIds.length === 0) {
+                showMessageBox('Selecione ao menos um serviço.', 'error');
+                hideLoading();
+                return;
+            }
+            if (!appointmentDate) {
+                showMessageBox('Selecione uma data para o agendamento.', 'error');
+                hideLoading();
+                return;
+            }
+            if (!appointmentTime) {
+                showMessageBox('Selecione um horário disponível.', 'error');
+                hideLoading();
+                return;
+            }
+
+            // Combina data e hora para criar um objeto Date completo
+            const fullAppointmentDateTime = `${appointmentDate}T${appointmentTime}:00`; // Formato ISO 8601
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/public/appointments/initiate-payment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        establishmentId: publicBookingEstablishmentId,
+                        employeeId,
+                        serviceIds, // Envia um array de IDs de serviço
+                        clientName,
+                        clientPhone,
+                        appointmentDate: fullAppointmentDateTime // Envia a data e hora completas
+                    })
+                });
+                const data = await response.json();
+
+                if (response.ok && data.paymentLink) {
+                    showMessageBox('Redirecionando para o pagamento...', 'info');
+                    window.location.href = data.paymentLink; // Redireciona para o Mercado Pago
+                } else {
+                    showMessageBox(data.message || 'Erro ao iniciar agendamento e pagamento. Por favor, tente novamente.', 'error');
+                }
+            } catch (error) {
+                console.error('Erro de rede ou servidor:', error);
+                showMessageBox('Erro ao conectar ao servidor para iniciar agendamento e pagamento.', 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // --- Funções da Página de Status de Pagamento ---
+        function handlePaymentStatusPage(path, appointmentId) {
+            appDiv.classList.add('hidden'); // Esconde o app principal
+            paymentStatusPage.classList.remove('hidden'); // Mostra a página de status
+
+            let title = '';
+            let message = '';
+            let messageType = 'info';
+
+            if (path.startsWith('/payment-success')) {
+                title = 'Pagamento Aprovado!';
+                message = 'Seu agendamento foi confirmado com sucesso!';
+                messageType = 'success';
+            } else if (path.startsWith('/payment-failure')) {
+                title = 'Pagamento Recusado!';
+                message = 'Houve um problema com seu pagamento. Seu agendamento não foi confirmado.';
+                messageType = 'error';
+            } else if (path.startsWith('/payment-pending')) {
+                title = 'Pagamento Pendente!';
+                message = 'Seu pagamento está em análise. Você receberá uma confirmação em breve.';
+                messageType = 'info';
+            }
+
+            paymentStatusTitle.textContent = title;
+            paymentStatusMessage.textContent = message;
+            showMessageBox(message, messageType); // Exibe a mensagem também na caixa de notificação principal
+
+            let countdown = 5;
+            countdownSpan.textContent = countdown;
+            const interval = setInterval(() => {
+                countdown--;
+                countdownSpan.textContent = countdown;
+                if (countdown <= 0) {
+                    clearInterval(interval);
+                    window.location.href = '/'; // Redireciona para a página inicial
+                }
+            }, 1000);
+
+            goHomeButton.addEventListener('click', () => {
+                clearInterval(interval);
+                window.location.href = '/'; // Redireciona imediatamente
+            });
+        }
+
+
+        // --- Inicialização ---
+        document.addEventListener('DOMContentLoaded', () => {
+            showLoading(); // Mostra o spinner enquanto verifica a autenticação
+            checkAuthAndNavigate();
+        });
+
+    </script>
+</body>
+</html>
