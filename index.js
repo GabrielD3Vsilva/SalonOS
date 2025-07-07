@@ -1,22 +1,20 @@
 // index.js - Backend Node.js com Express e Mongoose
 require('dotenv').config(); // Carrega variáveis de ambiente do arquivo .env
-const express = require('express'); 
+const express = require('express');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const path = require('path'); // Para servir o arquivo HTML estático
-const { MercadoPagoConfig, PreApprovalPlan, PreApproval, Preference, Payment } = require('mercadopago'); // Importa Preference e Payment
+const { MercadoPagoConfig, PreApprovalPlan, PreApproval, Preference, Payment } = require('mercadopago');
 const moment = require('moment'); // Para manipulação de datas
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET; // Use uma chave forte em produção
-// Use uma variável de ambiente para o Access Token do Mercado Pago em produção
 const MERCADOPAGO_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN
 
 // Middleware para permitir CORS (Cross-Origin Resource Sharing)
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Origin', '*'); // Em produção, considere restringir a domínios específicos
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     if (req.method === 'OPTIONS') {
@@ -44,8 +42,8 @@ const client = new MercadoPagoConfig({
 
 const preApprovalPlan = new PreApprovalPlan(client);
 const preApproval = new PreApproval(client);
-const preferenceService = new Preference(client); // CORREÇÃO: Usar Preference para criar links de pagamento
-const paymentService = new Payment(client); // Manter Payment para webhooks de pagamento (get)
+const preferenceService = new Preference(client);
+const paymentService = new Payment(client);
 
 // --- Schemas e Modelos Mongoose ---
 
@@ -54,7 +52,9 @@ const UserSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: { type: String, enum: ['establishment', 'employee'], required: true },
-    establishmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Establishment', default: null }
+    establishmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Establishment', default: null },
+    planoAtivo: { type: Boolean, default: false }, // MOVIDO PARA CÁ
+    dataExpiracaoPlano: { type: Date, default: null } // MOVIDO PARA CÁ
 });
 const User = mongoose.model('User', UserSchema);
 
@@ -65,9 +65,8 @@ const EstablishmentSchema = new mongoose.Schema({
     phone: { type: String, required: true },
     description: { type: String },
     publicLink: { type: String, unique: true },
-    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    planoAtivo: { type: Boolean, default: false }, // Novo atributo: planoAtivo
-    dataExpiracaoPlano: { type: Date, default: null } // Novo atributo: data de expiração do plano
+    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+    // planoAtivo e dataExpiracaoPlano REMOVIDOS daqui
 });
 
 // Pré-salvamento para gerar o publicLink
@@ -190,12 +189,26 @@ app.post('/api/login', async (req, res) => {
         }
 
         const token = jwt.sign(
-            { userId: user._id, email: user.email, role: user.role, establishmentId: user.establishmentId },
+            {
+                userId: user._id,
+                email: user.email,
+                role: user.role,
+                establishmentId: user.establishmentId,
+                planoAtivo: user.planoAtivo, // Adicionado
+                dataExpiracaoPlano: user.dataExpiracaoPlano // Adicionado
+            },
             JWT_SECRET,
             { expiresIn: '1h' }
         );
 
-        res.json({ message: 'Login bem-sucedido!', token, role: user.role, establishmentId: user.establishmentId });
+        res.json({
+            message: 'Login bem-sucedido!',
+            token,
+            role: user.role,
+            establishmentId: user.establishmentId,
+            planoAtivo: user.planoAtivo, // Adicionado
+            dataExpiracaoPlano: user.dataExpiracaoPlano // Adicionado
+        });
     } catch (error) {
         console.error('Erro ao fazer login:', error);
         res.status(500).json({ message: 'Erro interno do servidor.' });
@@ -228,10 +241,11 @@ app.post('/api/establishments', authenticateToken, async (req, res) => {
         // Atualiza o usuário para vincular ao estabelecimento recém-criado
         await User.findByIdAndUpdate(req.user.userId, { establishmentId: newEstablishment._id });
 
+        // A URL pública agora é apenas um identificador, o frontend irá construí-la
         res.status(201).json({
             message: 'Perfil de estabelecimento criado com sucesso!',
             establishment: newEstablishment,
-            publicLink: `${req.protocol}://${req.get('host')}/public${newEstablishment.publicLink}`
+            publicLink: newEstablishment.publicLink // Retorna apenas o sufixo
         });
     } catch (error) {
         console.error('Erro ao criar estabelecimento:', error);
@@ -620,10 +634,10 @@ app.get('/api/public/available-times/:employeeId/:date', async (req, res) => {
 
 // Rota para INICIAR o Agendamento e Pagamento (PÚBLICA - cliente não precisa de conta)
 app.post('/api/public/appointments/initiate-payment', async (req, res) => {
-    const { establishmentId, employeeId, serviceIds, clientName, clientPhone, appointmentDate } = req.body;
+    const { establishmentId, employeeId, serviceIds, clientName, clientPhone, appointmentDate, redirectBaseUrl } = req.body;
 
-    if (!establishmentId || !employeeId || !serviceIds || serviceIds.length === 0 || !clientName || !clientPhone || !appointmentDate) {
-        return res.status(400).json({ message: 'Todos os campos de agendamento e serviços são obrigatórios.' });
+    if (!establishmentId || !employeeId || !serviceIds || serviceIds.length === 0 || !clientName || !clientPhone || !appointmentDate || !redirectBaseUrl) {
+        return res.status(400).json({ message: 'Todos os campos de agendamento e serviços são obrigatórios, incluindo redirectBaseUrl.' });
     }
 
     try {
@@ -711,7 +725,7 @@ app.post('/api/public/appointments/initiate-payment', async (req, res) => {
         await newAppointment.save();
 
         // 5. Cria a preferência de pagamento no Mercado Pago
-        const preference = await preferenceService.create({ // CORREÇÃO: Usar preferenceService
+        const preference = await preferenceService.create({
             body: {
                 items: services.map(s => ({
                     title: s.name,
@@ -723,10 +737,11 @@ app.post('/api/public/appointments/initiate-payment', async (req, res) => {
                     name: clientName,
                     email: "test_user_123@test.com" // Use um email real do cliente em produção
                 },
+                // As URLs de retorno agora dependem do frontend que as envia
                 back_urls: {
-                    success: `https://gemini.google.com/app/a2cfd9f7e473fc7d?hl=pt-PT`,
-                    failure: `https://gemini.google.com/app/a2cfd9f7e473fc7d?hl=pt-PT`,
-                    pending: `https://gemini.google.com/app/a2cfd9f7e473fc7d?hl=pt-PT`
+                    success: `${redirectBaseUrl}/payment-success`,
+                    failure: `${redirectBaseUrl}/payment-failure`,
+                    pending: `${redirectBaseUrl}/payment-pending`
                 },
                 auto_return: "approved",
                 external_reference: newAppointment._id.toString(), // Usa o ID do agendamento como referência externa
@@ -797,11 +812,17 @@ app.put('/api/appointments/:id/status', authenticateToken, async (req, res) => {
 
 // Rota para criar plano mensal (protegida para o proprietário do estabelecimento)
 app.post('/api/subscriptions/monthly', authenticateToken, async (req, res) => {
-    if (req.user.role !== 'establishment' || !req.user.establishmentId) {
-        return res.status(403).json({ message: 'Apenas proprietários de estabelecimentos podem criar planos.' });
+    // A validação de role 'establishment' já foi feita pelo authenticateToken
+    if (!req.user.userId) { // Certifica-se de que o userId está no token
+        return res.status(400).json({ message: 'ID do usuário não encontrado no token.' });
     }
 
-    const establishmentId = req.user.establishmentId;
+    const userId = req.user.userId;
+    const { redirectBaseUrl } = req.body; // O frontend deve enviar esta URL
+
+    if (!redirectBaseUrl) {
+        return res.status(400).json({ message: 'A URL de redirecionamento (redirectBaseUrl) é obrigatória.' });
+    }
 
     try {
         const response = await preApprovalPlan.create({
@@ -813,14 +834,12 @@ app.post('/api/subscriptions/monthly', authenticateToken, async (req, res) => {
                     transaction_amount: 99.90, // Valor mensal
                     currency_id: "BRL"
                 },
-                // back_url deve ser uma URL real para onde o usuário será redirecionado após a assinatura
-                back_url: `https://gemini.google.com/app/a2cfd9f7e473fc7d?hl=pt-PT`,
-                external_reference: `plano_mensal_${establishmentId}`, // Referência externa com o ID do estabelecimento
+                back_url: `${redirectBaseUrl}/subscription-status`, // Redireciona para uma rota no frontend
+                external_reference: `plano_mensal_user_${userId}`, // Referência externa com o ID do USUÁRIO
                 status: "active"
             }
         });
 
-        // O 'init_point' é a URL para onde o usuário deve ser redirecionado para completar a assinatura
         return res.json({ init_point: response.init_point });
     } catch (error) {
         console.error("Erro ao criar plano mensal:", error.message || error);
@@ -830,11 +849,17 @@ app.post('/api/subscriptions/monthly', authenticateToken, async (req, res) => {
 
 // Rota para criar plano anual (protegida para o proprietário do estabelecimento)
 app.post('/api/subscriptions/annual', authenticateToken, async (req, res) => {
-    if (req.user.role !== 'establishment' || !req.user.establishmentId) {
-        return res.status(403).json({ message: 'Apenas proprietários de estabelecimentos podem criar planos.' });
+    // A validação de role 'establishment' já foi feita pelo authenticateToken
+    if (!req.user.userId) { // Certifica-se de que o userId está no token
+        return res.status(400).json({ message: 'ID do usuário não encontrado no token.' });
     }
 
-    const establishmentId = req.user.establishmentId;
+    const userId = req.user.userId;
+    const { redirectBaseUrl } = req.body; // O frontend deve enviar esta URL
+
+    if (!redirectBaseUrl) {
+        return res.status(400).json({ message: 'A URL de redirecionamento (redirectBaseUrl) é obrigatória.' });
+    }
 
     try {
         const response = await preApprovalPlan.create({
@@ -846,14 +871,12 @@ app.post('/api/subscriptions/annual', authenticateToken, async (req, res) => {
                     transaction_amount: 700.00, // Valor anual
                     currency_id: "BRL"
                 },
-                // back_url deve ser uma URL real para onde o usuário será redirecionado após a assinatura
-                back_url: `https://gemini.google.com/app/a2cfd9f7e473fc7d?hl=pt-PT`,
-                external_reference: `plano_anual_${establishmentId}`, // Referência externa com o ID do estabelecimento
+                back_url: `${redirectBaseUrl}/subscription-status`, // Redireciona para uma rota no frontend
+                external_reference: `plano_anual_user_${userId}`, // Referência externa com o ID do USUÁRIO
                 status: "active"
             }
         });
 
-        // O 'init_point' é a URL para onde o usuário deve ser redirecionado para completar a assinatura
         return res.json({ init_point: response.init_point });
     } catch (error) {
         console.error("Erro ao criar plano anual:", error.message || error);
@@ -882,45 +905,45 @@ app.post('/api/mercadopago/webhook', async (req, res) => {
             const externalReference = preapprovalDetails.external_reference;
             const status = preapprovalDetails.status; // authorized, pending, cancelled, paused
 
-            // Extrai o ID do estabelecimento do external_reference
-            const establishmentIdMatch = externalReference.match(/_(plano_mensal|plano_anual)_(.+)/);
-            const establishmentId = establishmentIdMatch ? establishmentIdMatch[2] : null;
+            // Extrai o ID do usuário do external_reference
+            const userIdMatch = externalReference.match(/_(plano_mensal|plano_anual)_user_(.+)/);
+            const userId = userIdMatch ? userIdMatch[2] : null;
 
-            if (!establishmentId) {
-                console.warn("ID do estabelecimento não encontrado no external_reference:", externalReference);
-                return res.status(400).send("ID do estabelecimento não encontrado.");
+            if (!userId) {
+                console.warn("ID do usuário não encontrado no external_reference:", externalReference);
+                return res.status(400).send("ID do usuário não encontrado.");
             }
 
-            const establishment = await Establishment.findById(establishmentId);
+            const user = await User.findById(userId);
 
-            if (!establishment) {
-                console.warn("Estabelecimento não encontrado para o ID:", establishmentId);
-                return res.status(404).send("Estabelecimento não encontrado.");
+            if (!user) {
+                console.warn("Usuário não encontrado para o ID:", userId);
+                return res.status(404).send("Usuário não encontrado.");
             }
 
             if (status === 'authorized') { // Assinatura ativa e paga
-                establishment.planoAtivo = true;
+                user.planoAtivo = true;
 
                 // Define a data de expiração com base no plano
                 if (externalReference.includes('plano_mensal')) {
-                    establishment.dataExpiracaoPlano = moment().add(1, 'months').toDate();
+                    user.dataExpiracaoPlano = moment().add(1, 'months').toDate();
                 } else if (externalReference.includes('plano_anual')) {
-                    establishment.dataExpiracaoPlano = moment().add(12, 'months').toDate();
+                    user.dataExpiracaoPlano = moment().add(12, 'months').toDate();
                 }
 
-                await establishment.save();
-                console.log(`Plano ativado para o estabelecimento ${establishment.name}. Data de expiração: ${establishment.dataExpiracaoPlano}`);
+                await user.save();
+                console.log(`Plano ativado para o usuário ${user.email}. Data de expiração: ${user.dataExpiracaoPlano}`);
             } else if (['cancelled', 'paused', 'pending'].includes(status)) {
                 // Lidar com outros status de pré-aprovação, como cancelamento, pausa ou pendente
-                establishment.planoAtivo = false;
-                establishment.dataExpiracaoPlano = null; // Ou defina como a data de cancelamento se aplicável
-                await establishment.save();
-                console.log(`Plano do estabelecimento ${establishment.name} atualizado para ${status}.`);
+                user.planoAtivo = false;
+                user.dataExpiracaoPlano = null; // Ou defina como a data de cancelamento se aplicável
+                await user.save();
+                console.log(`Plano do usuário ${user.email} atualizado para ${status}.`);
             }
         } else if (type === 'payment') {
             // Este tipo de notificação é para pagamentos únicos, como o agendamento
             const paymentId = data.id;
-            const paymentDetails = await paymentService.get({ id: paymentId }); // Usa a instância 'paymentService'
+            const paymentDetails = await paymentService.get({ id: paymentId });
             const paymentStatus = paymentDetails.status;
             const externalReference = paymentDetails.external_reference; // Deve ser o appointmentId
 
@@ -959,16 +982,17 @@ app.post('/api/mercadopago/webhook', async (req, res) => {
 // Função para verificar e desativar planos expirados (pode ser executada por um cron job)
 async function verificarPlanosExpirados() {
     try {
-        const establishmentsExpirados = await Establishment.find({
+        const usersExpirados = await User.find({
+            role: 'establishment', // Apenas usuários com role 'establishment' têm planos
             planoAtivo: true,
-            dataExpiracaoPlano: { $lte: new Date() } // Encontra estabelecimentos com plano ativo e data de expiração passada
+            dataExpiracaoPlano: { $lte: new Date() } // Encontra usuários com plano ativo e data de expiração passada
         });
 
-        for (const establishment of establishmentsExpirados) {
-            establishment.planoAtivo = false;
-            establishment.dataExpiracaoPlano = null; // Ou mantenha a data de expiração para histórico
-            await establishment.save();
-            console.log(`Plano do estabelecimento ${establishment.name} desativado por expiração.`);
+        for (const user of usersExpirados) {
+            user.planoAtivo = false;
+            user.dataExpiracaoPlano = null; // Ou mantenha a data de expiração para histórico
+            await user.save();
+            console.log(`Plano do usuário ${user.email} desativado por expiração.`);
         }
     } catch (error) {
         console.error("Erro ao verificar planos expirados:", error.message || error);
@@ -979,39 +1003,10 @@ async function verificarPlanosExpirados() {
 // Em produção, use um serviço de cron job (e.g., Heroku Scheduler, AWS Lambda com CloudWatch Events)
 // setInterval(verificarPlanosExpirados, 24 * 60 * 60 * 1000); // Executa a cada 24 horas
 
-// --- Servir o arquivo HTML estático (Frontend) ---
-// Esta rota deve ser a última para não interceptar as rotas da API
-app.use(express.static(path.join(__dirname, 'public'))); // Assumindo que index.html estará em uma pasta 'public'
-// Para este exemplo de arquivo único, serviremos o index.html diretamente do diretório raiz
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Rota para o link público do estabelecimento
-// Ex: http://localhost:3000/public/60c72b2f9b1d8c001c8e4d3a (onde 60c... é o ID do estabelecimento)
-app.get('/public/:establishmentId', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html')); // O frontend JS vai lidar com a extração do ID da URL
-});
-
-// Rotas de redirecionamento de pagamento (frontend)
-app.get('/payment-success', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'payment-status.html')); // Crie um arquivo payment-status.html no frontend
-});
-
-app.get('/payment-failure', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'payment-status.html'));
-});
-
-app.get('/payment-pending', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'payment-status.html'));
-});
-
-
 // Iniciar o servidor
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
-    console.log(`Acesse o frontend em http://localhost:${PORT}`);
-    console.log('Para usar o backend, use ferramentas como Postman ou o frontend gerado.');
+    console.log('Este é um servidor de API RESTful. O frontend deve ser servido separadamente.');
     console.log('Certifique-se de que o MongoDB esteja rodando.');
     // Chame a função de verificação de planos expirados ao iniciar o servidor
     verificarPlanosExpirados();
